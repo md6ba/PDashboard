@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>داشبورد جامع دیسیپلین (نسخه نهایی و فیکس شده)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --card-border: #334155;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --radius: 16px;
+    
+    /* Colors */
+    --c-growth: #8b5cf6;
+    --c-health: #10b981;
+    --c-wealth: #f59e0b;
+    --c-mind:   #3b82f6;
+    --c-social: #f43f5e;
+    --c-admin:  #64748b;
+  }
+
+  body {
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    margin: 0;
+    padding: 24px;
+    line-height: 1.6;
+  }
+
+  /* --- Layout --- */
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  /* --- Controls --- */
+  .controls-bar {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  
+  input, select {
+    background: #020617;
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    padding: 8px 12px;
+    border-radius: 8px;
+    outline: none;
+    transition: 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--c-growth); }
+  input[type=number].small { width: 60px; text-align: center; }
+
+  .btn {
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(135deg, var(--c-growth), var(--c-mind)); }
+  .btn.ghost { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); }
+  .btn.ghost:hover { border-color: var(--text-main); color: var(--text-main); }
+  .btn.danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+  .btn.danger:hover { background: rgba(239, 68, 68, 0.25); }
+  .btn.mini { padding: 0; width: 100%; height: 100%; font-size: 14px; border-radius: 4px; line-height: 1; }
+
+  /* --- Charts Grid --- */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  @media (min-width: 1024px) {
+    /* RTL: First child is Right, Second child is Left */
+    .charts-grid { grid-template-columns: 1fr 2fr; }
+  }
+  .chart-wrapper { position: relative; height: 350px; width: 100%; }
+  
+  .zoom-toggle {
+    position: absolute; top: 0; left: 0;
+    background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 6px;
+    font-size: 11px; display: flex; align-items: center; gap: 6px; z-index: 10;
+  }
+
+  /* --- Checklist Grid --- */
+  .checklist-container { overflow-x: auto; padding-bottom: 8px; }
+  .row {
+    display: grid; gap: 2px; margin-bottom: 4px; align-items: stretch;
+  }
+  .cell {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; font-size: 13px; position: relative;
+  }
+  .cell.task {
+    justify-content: center; padding: 0 8px; font-weight: 600;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cell.header-cell {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    color: var(--text-muted); font-weight: bold; height: 36px;
+  }
+  .cell.day { background: rgba(30, 41, 59, 0.5); padding: 3px; }
+
+  input[type=checkbox] {
+    appearance: none; width: 100%; height: 100%; margin: 0;
+    background: transparent; border: 1px solid #334155; border-radius: 4px;
+    cursor: pointer; display: grid; place-content: center;
+  }
+  input[type=checkbox]:checked {
+    border-color: transparent; box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+  }
+  input[type=checkbox]:checked::before {
+    content: "✔"; color: white; font-size: 14px; font-weight: 900;
+  }
+
+  /* --- Footer --- */
+  .footer { display: grid; gap: 20px; font-size: 14px; }
+  .footer-section { border-bottom: 1px solid var(--card-border); padding-bottom: 15px; }
+  .footer-section:last-child { border-bottom: none; padding-bottom: 0; }
+  .section-title { font-weight: 700; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  
+  .tag-display {
+    display: flex; gap: 5px; flex-wrap: wrap; 
+    background: #020617; padding: 5px; border-radius: 6px; flex-grow: 1; min-height: 38px;
+  }
+  .tag {
+    padding: 2px 10px; border-radius: 12px; font-size: 11px; color: white;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .tag .del { cursor: pointer; font-weight: bold; opacity: 0.7; margin-right: 4px; }
+  .tag .del:hover { opacity: 1; color: #fca5a5; }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  
+  <div class="card controls-bar">
+    <div style="display:flex; gap:10px; align-items:center;">
+        <h1>داشبورد جامع دیسیپلین</h1>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+        <label>روزهای ماه:</label>
+        <input class="small" type="number" id="daysInput" value="30" min="7" max="365" />
+        <button class="btn primary" id="reloadBtn" title="تغییر تعداد روزها بدون حذف تیک‌ها">🔄 بروزرسانی جدول</button>
+        <button class="btn ghost" id="saveBtn">💾 ذخیره</button>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    
+    <div class="card" style="position:relative;">
+      <div class="section-title">🎯 تعادل چرخ زندگی</div>
+      <div class="zoom-toggle">
+        <input type="checkbox" id="zoomToggle" checked style="width:14px; height:14px;">
+        <label for="zoomToggle" style="color:#fff; cursor:pointer;">زوم هوشمند</label>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">📈 روند روزانه (استمرار)</div>
+      <div class="chart-wrapper">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card checklist-container">
+    <div id="checklist"></div>
+  </div>
+
+  <div class="card footer">
+    
+    <div class="footer-section">
+        <span class="section-title">⚡ ایجاد کار جدید</span>
+        <div class="action-row">
+            <input type="text" id="newTaskName" placeholder="عنوان عادت..." style="flex-grow:1" />
+            <select id="newTaskCategory" style="min-width:140px"></select>
+            <input type="number" id="newTaskFreq" class="small" step="0.1" min="0.1" max="1" value="1" placeholder="ضریب" title="ضریب اهمیت (0.1 تا 1)" />
+            <button class="btn primary" id="addTaskBtn">افزودن کار</button>
+        </div>
+    </div>
+
+    <div class="footer-section">
+        <span class="section-title">📂 مدیریت کتگوری‌ها</span>
+        <div class="action-row">
+            <input type="text" id="newCatName" placeholder="نام کتگوری جدید..." />
+            <button class="btn ghost" id="addCatBtn">ساختن</button>
+            <div style="width:20px"></div>
+            <select id="delCatSelect" style="min-width:140px"></select>
+            <button class="btn danger" id="delCatBtn">حذف کتگوری</button>
+        </div>
+    </div>
+
+    <div class="footer-section">
+        <span class="section-title">🏷️ تنظیمات پیشرفته کارها</span>
+        <div class="action-row">
+            <select id="multiTaskSelect" style="min-width:200px">
+                <option value="" disabled selected>انتخاب کار برای ویرایش...</option>
+            </select>
+            <div id="taskTagBox" class="tag-display"></div>
+            <select id="addTagSelect" style="width:130px"><option value="">+ تگ...</option></select>
+            <button class="btn ghost" id="applyTagsBtn">افزودن تگ</button>
+        </div>
+        
+        <div class="action-row" style="margin-top:12px; justify-content: space-between;">
+            <div style="display:flex; gap:8px; align-items:center;">
+                <label>تغییر ضریب:</label>
+                <input type="number" id="freqInput" class="small" step="0.1" min="0" max="1" />
+                <button class="btn ghost" id="setFreqBtn">بروزرسانی</button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <select id="deleteTaskSelect" style="min-width:150px"></select>
+                <button class="btn danger" id="deleteTaskBtn">حذف کامل کار</button>
+            </div>
+        </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* -------------------------
+   CONFIG & DATA
+   ------------------------- */
+const STORAGE_KEY = 'FinalFixedDashboard_V8';
+
+const CAT_CONFIG = {
+    'رشد و یادگیری': '#8b5cf6',
+    'سلامت جسمانی': '#10b981',
+    'کار و ثروت':   '#f59e0b',
+    'ذهن و روان':   '#3b82f6',
+    'ارتباطات':     '#f43f5e',
+    'نظم شخصی':     '#64748b'
+};
+
+function getCatColor(cat) {
+    if(CAT_CONFIG[cat]) return CAT_CONFIG[cat];
+    let hash = 0;
+    for (let i = 0; i < cat.length; i++) hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+    return `hsl(${Math.abs(hash) % 360}, 65%, 55%)`;
+}
+
+function uid(){ return Math.random().toString(36).substr(2, 9); }
+
+let tasks = [
+    { id: uid(), name: 'تمرکز و مدیتیشن', categories: ['ذهن و روان'], freq: 1 },
+    { id: uid(), name: 'ورزش سنگین/هوازی', categories: ['سلامت جسمانی'], freq: 0.8 },
+    { id: uid(), name: 'خواب با کیفیت', categories: ['سلامت جسمانی'], freq: 1 },
+    { id: uid(), name: 'پروژه DigiProof', categories: ['کار و ثروت', 'رشد و یادگیری'], freq: 0.7 },
+    { id: uid(), name: 'مطالعه تخصصی', categories: ['رشد و یادگیری'], freq: 0.8 },
+    { id: uid(), name: 'مدیریت مالی/ترید', categories: ['کار و ثروت'], freq: 0.5 },
+    { id: uid(), name: 'یادداشت روزانه', categories: ['ذهن و روان', 'رشد و یادگیری'], freq: 0.9 },
+    { id: uid(), name: 'یادگیری مهارت', categories: ['رشد و یادگیری'], freq: 0.6 },
+    { id: uid(), name: 'ارتباط مؤثر', categories: ['ارتباطات'], freq: 0.5 },
+    { id: uid(), name: 'برنامه‌ریزی فردا', categories: ['نظم شخصی'], freq: 1 },
+    { id: uid(), name: 'نوشیدن آب کافی', categories: ['سلامت جسمانی'], freq: 0.6 },
+    { id: uid(), name: 'مرور هفتگی', categories: ['نظم شخصی', 'کار و ثروت'], freq: 0.4 }
+];
+
+let categories = Object.keys(CAT_CONFIG);
+let daysCount = 30;
+
+/* -------------------------
+   STATE & STORAGE
+   ------------------------- */
+function getCurrentChecks() {
+    const checkboxState = {};
+    document.querySelectorAll('input[type=checkbox][data-task-id]').forEach(ch => {
+        checkboxState[ch.id] = ch.checked;
+    });
+    return checkboxState;
+}
+
+function saveState() {
+    const data = { 
+        daysCount, 
+        tasks, 
+        categories, 
+        checkboxState: getCurrentChecks() 
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadState() {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if(s.daysCount) daysCount = s.daysCount;
+    if(s.tasks) tasks = s.tasks;
+    if(s.categories) categories = s.categories;
+    if(!categories.length) categories = Object.keys(CAT_CONFIG);
+
+    document.getElementById('daysInput').value = daysCount;
+    buildChecklist(s.checkboxState || {});
+    updateCharts();
+}
+
+/* -------------------------
+   CHARTS (FIXED RADAR SCALING)
+   ------------------------- */
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+
+const radarCtx = document.getElementById('radarChart').getContext('2d');
+const radarChart = new Chart(radarCtx, {
+    type: 'radar',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Performance',
+            data: [],
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            borderColor: 'rgba(255,255,255,0.4)',
+            borderWidth: 1,
+            pointBackgroundColor: [],
+            pointBorderColor: '#fff',
+            pointRadius: 5,
+            pointHoverRadius: 8
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            r: {
+                // MIN is always 0
+                min: 0,
+                angleLines: { color: '#334155' },
+                grid: { color: '#334155' },
+                pointLabels: { 
+                    font: { size: 12, weight: '700' },
+                    color: (ctx) => ctx.label==='دیسیپلین' ? '#fff' : getCatColor(ctx.label)
+                },
+                ticks: { 
+                    display: false, // Hide numbers to reduce clutter
+                    backdropColor: 'transparent',
+                    count: 6 // Force exactly 5 grid rings (0 to max)
+                }
+            }
+        }
+    }
+});
+
+const lineCtx = document.getElementById('lineChart').getContext('2d');
+const lineChart = new Chart(lineCtx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'تعداد تیک',
+            data: [],
+            borderColor: '#38bdf8',
+            backgroundColor: (ctx) => {
+                const g = ctx.chart.ctx.createLinearGradient(0,0,0,300);
+                g.addColorStop(0,'rgba(56,189,248,0.5)'); g.addColorStop(1,'rgba(56,189,248,0)');
+                return g;
+            },
+            borderWidth: 3, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor:'#fff'
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, grid: {color:'#1e293b'} }, x: { grid: {display:false} } }
+    }
+});
+
+/* -------------------------
+   BUILDER
+   ------------------------- */
+function getGradient(cats) {
+    const valid = cats.filter(c=>c!=='بدون دسته');
+    if(!valid.length) return '#334155';
+    if(valid.length===1) return `linear-gradient(90deg, ${getCatColor(valid[0])}33, ${getCatColor(valid[0])}88)`;
+    const stops = valid.map(c => getCatColor(c)+'66').join(', ');
+    return `linear-gradient(90deg, ${stops})`;
+}
+
+function buildChecklist(savedState = {}) {
+    const list = document.getElementById('checklist');
+    list.innerHTML = '';
+    const colStyle = `grid-template-columns: 200px repeat(${daysCount}, 40px)`;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'row'; header.style = colStyle;
+    header.innerHTML = `<div class="cell header-cell">عنوان کار</div>`;
+    for(let i=1; i<=daysCount; i++) header.innerHTML += `<div class="cell header-cell">${i}</div>`;
+    list.appendChild(header);
+
+    // Rows
+    tasks.forEach(task => {
+        const row = document.createElement('div');
+        row.className = 'row'; row.style = colStyle;
+        
+        const nameCell = document.createElement('div');
+        nameCell.className = 'cell task';
+        nameCell.textContent = task.name;
+        nameCell.style.background = getGradient(task.categories);
+        row.appendChild(nameCell);
+
+        for(let d=0; d<daysCount; d++) {
+            const cell = document.createElement('div'); cell.className = 'cell day';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.id = `t-${task.id}-d${d}`;
+            chk.dataset.taskId = task.id;
+            if(savedState[chk.id]) chk.checked = true;
+            
+            chk.style.accentColor = getCatColor(task.categories[0] || 'gray'); 
+            chk.onchange = () => { saveState(); updateCharts(); };
+            cell.appendChild(chk);
+            row.appendChild(cell);
+        }
+        list.appendChild(row);
+    });
+
+    // Footer Buttons
+    const btnRow = document.createElement('div');
+    btnRow.className = 'row'; btnRow.style = colStyle;
+    
+    const clearAllCell = document.createElement('div');
+    clearAllCell.className = 'cell';
+    const clearAllBtn = document.createElement('button');
+    clearAllBtn.className = 'btn danger mini';
+    clearAllBtn.textContent = 'پاکسازی';
+    clearAllBtn.onclick = () => {
+        if(confirm('حذف تمام تیک‌ها؟')) {
+            document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+            saveState(); updateCharts();
+        }
+    };
+    clearAllCell.appendChild(clearAllBtn);
+    btnRow.appendChild(clearAllCell);
+
+    for(let d=0; d<daysCount; d++) {
+        const c = document.createElement('div'); c.className = 'cell day';
+        const b = document.createElement('button'); 
+        b.className = 'btn ghost mini'; b.textContent = '×';
+        b.onclick = () => {
+            if(confirm(`حذف ستون ${d+1}؟`)) {
+                tasks.forEach(t => {
+                    const el = document.getElementById(`t-${t.id}-d${d}`);
+                    if(el) el.checked = false;
+                });
+                saveState(); updateCharts();
+            }
+        };
+        c.appendChild(b);
+        btnRow.appendChild(c);
+    }
+    list.appendChild(btnRow);
+
+    updateSelects();
+}
+
+/* -------------------------
+   LOGIC & ZOOM
+   ------------------------- */
+function updateCharts() {
+    const lineData = Array(daysCount).fill(0);
+    const catStats = {}; 
+    categories.forEach(c => catStats[c] = {total:0, done:0});
+
+    let discSum = 0;
+    let discMax = 0;
+
+    tasks.forEach(t => {
+        const w = parseFloat(t.freq)||1;
+        discMax += (w * daysCount);
+        
+        for(let d=0; d<daysCount; d++) {
+            const el = document.getElementById(`t-${t.id}-d${d}`);
+            const checked = el && el.checked;
+            
+            if(checked) {
+                lineData[d]++;
+                discSum += w;
+            }
+
+            t.categories.forEach(c => {
+                if(!catStats[c]) catStats[c] = {total:0, done:0};
+                catStats[c].total++;
+                if(checked) catStats[c].done++;
+            });
+        }
+    });
+
+    const radarLabels = [];
+    const radarData = [];
+    const radarColors = [];
+
+    categories.forEach(c => {
+        const s = catStats[c];
+        if(s && s.total > 0) {
+            radarLabels.push(c);
+            radarData.push((s.done / s.total) * 100);
+            radarColors.push(getCatColor(c));
+        }
+    });
+
+    radarLabels.push('دیسیپلین');
+    radarData.push(discMax ? (discSum/discMax)*100 : 0);
+    radarColors.push('#ffffff');
+
+    // --- FIXED ZOOM LOGIC ---
+    const isZoom = document.getElementById('zoomToggle').checked;
+    let rMax = 100;
+    let rStep = 20; // Default 5 steps (100/5 = 20)
+
+    if(isZoom) {
+        // Find the highest current value
+        const maxVal = Math.max(...radarData);
+        
+        // Round UP to the nearest 10. 
+        // Example: 12% -> 20%.  2% -> 10%.
+        // We enforce a minimum of 10% so the chart never "turns off" or divides by zero.
+        let ceiling = Math.ceil(maxVal / 10) * 10;
+        if(ceiling < 10) ceiling = 10; 
+        if(ceiling > 100) ceiling = 100;
+
+        rMax = ceiling;
+        // Dynamically calculate step size to ALWAYS have 5 rings
+        // Example: Max=20 -> Step=4. Max=50 -> Step=10.
+        rStep = rMax / 5;
+    }
+
+    // Apply to Chart
+    lineChart.data.labels = Array.from({length:daysCount}, (_,i)=>i+1);
+    lineChart.data.datasets[0].data = lineData;
+    lineChart.update();
+
+    radarChart.data.labels = radarLabels;
+    radarChart.data.datasets[0].data = radarData;
+    radarChart.data.datasets[0].pointBackgroundColor = radarColors;
+    
+    // Apply scaling
+    radarChart.options.scales.r.max = rMax;
+    radarChart.options.scales.r.ticks.stepSize = rStep;
+    
+    radarChart.update();
+}
+
+/* -------------------------
+   ACTIONS
+   ------------------------- */
+function updateSelects() {
+    const fill = (id, list, ph) => {
+        const el = document.getElementById(id); el.innerHTML = '';
+        if(ph) el.add(new Option(ph,""));
+        list.forEach(x => el.add(new Option(x,x)));
+    };
+    fill('newTaskCategory', categories);
+    fill('addTagSelect', categories, '+ تگ...');
+    fill('delCatSelect', categories);
+
+    const tEl = document.getElementById('multiTaskSelect');
+    tEl.innerHTML = '<option value="" disabled selected>انتخاب کار...</option>';
+    tasks.forEach(t => tEl.add(new Option(t.name, t.id)));
+    
+    const dEl = document.getElementById('deleteTaskSelect');
+    dEl.innerHTML = '';
+    tasks.forEach(t => dEl.add(new Option(t.name, t.id)));
+}
+
+// RELOAD PRESERVES DATA
+document.getElementById('reloadBtn').onclick = () => {
+    daysCount = parseInt(document.getElementById('daysInput').value) || 30;
+    const currentChecks = getCurrentChecks();
+    buildChecklist(currentChecks);
+    saveState();
+    updateCharts();
+};
+
+document.getElementById('saveBtn').onclick = () => { saveState(); alert('ذخیره شد'); };
+document.getElementById('zoomToggle').onchange = () => updateCharts();
+
+document.getElementById('multiTaskSelect').onchange = function() {
+    const t = tasks.find(x=>x.id === this.value);
+    const box = document.getElementById('taskTagBox');
+    box.innerHTML = '';
+    if(!t) return;
+    document.getElementById('freqInput').value = t.freq;
+    t.categories.forEach(c => {
+        const sp = document.createElement('span'); sp.className = 'tag';
+        sp.style.backgroundColor = getCatColor(c);
+        sp.innerHTML = `${c} <span class="del" onclick="removeTag('${t.id}','${c}')">✕</span>`;
+        box.appendChild(sp);
+    });
+};
+
+window.removeTag = (tid, cat) => {
+    const t = tasks.find(x=>x.id===tid);
+    t.categories = t.categories.filter(x=>x!==cat);
+    if(!t.categories.length) t.categories=['بدون دسته'];
+    saveAndRef();
+};
+
+document.getElementById('applyTagsBtn').onclick = () => {
+    const tid = document.getElementById('multiTaskSelect').value;
+    const cat = document.getElementById('addTagSelect').value;
+    if(tid && cat) {
+        const t = tasks.find(x=>x.id===tid);
+        if(!t.categories.includes(cat)) {
+            t.categories.push(cat);
+            t.categories = t.categories.filter(x=>x!=='بدون دسته');
+            saveAndRef();
+        }
+    }
+};
+
+document.getElementById('setFreqBtn').onclick = () => {
+    const tid = document.getElementById('multiTaskSelect').value;
+    if(tid) {
+        tasks.find(x=>x.id===tid).freq = document.getElementById('freqInput').value;
+        saveAndRef();
+        alert('ضریب آپدیت شد');
+    }
+};
+
+document.getElementById('addCatBtn').onclick = () => {
+    const name = document.getElementById('newCatName').value.trim();
+    if(name && !categories.includes(name)) {
+        categories.push(name);
+        document.getElementById('newCatName').value = '';
+        saveAndRef(false);
+    }
+};
+
+document.getElementById('delCatBtn').onclick = () => {
+    const cat = document.getElementById('delCatSelect').value;
+    if(cat && confirm(`حذف ${cat}؟`)) {
+        categories = categories.filter(c => c !== cat);
+        tasks.forEach(t => {
+            t.categories = t.categories.filter(c => c !== cat);
+            if(!t.categories.length) t.categories = ['بدون دسته'];
+        });
+        saveAndRef(false);
+    }
+};
+
+document.getElementById('addTaskBtn').onclick = () => {
+    const name = document.getElementById('newTaskName').value;
+    const cat = document.getElementById('newTaskCategory').value;
+    if(name) {
+        tasks.push({ id: uid(), name, categories: [cat||'بدون دسته'], freq: document.getElementById('newTaskFreq').value });
+        document.getElementById('newTaskName').value = '';
+        saveAndRef(false);
+    }
+};
+
+document.getElementById('deleteTaskBtn').onclick = () => {
+    const tid = document.getElementById('deleteTaskSelect').value;
+    if(tid && confirm('حذف کار؟')) {
+        tasks = tasks.filter(t => t.id !== tid);
+        saveAndRef(false);
+    }
+};
+
+function saveAndRef(keepSel = true) {
+    saveState();
+    const sel = document.getElementById('multiTaskSelect').value;
+    buildChecklist(getCurrentChecks());
+    updateCharts();
+    if(keepSel && sel) {
+        document.getElementById('multiTaskSelect').value = sel;
+        document.getElementById('multiTaskSelect').dispatchEvent(new Event('change'));
+    }
+}
+
+loadState();
+
+</script>
+</body>
+</html>
