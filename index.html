@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>داشبورد جامع: دیسیپلین + مالی</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --card-border: #334155;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --radius: 16px;
+    
+    /* Colors */
+    --c-growth: #8b5cf6;
+    --c-health: #10b981;
+    --c-wealth: #f59e0b;
+    --c-mind:   #3b82f6;
+    --c-social: #f43f5e;
+    --c-admin:  #64748b;
+    
+    --c-pos: #10b981; /* Positive/Income - Green */
+    --c-neg: #ef4444; /* Negative/Expense - Red */
+  }
+
+  body {
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    margin: 0;
+    padding: 24px;
+    line-height: 1.6;
+  }
+
+  /* --- Layout & Tabs --- */
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .nav-tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .nav-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 10px 24px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .nav-btn.active {
+    background: var(--c-growth);
+    color: white;
+    border-color: var(--c-growth);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: flex; flex-direction: column; gap: 20px; }
+
+  h1 {
+    margin: 0; font-size: 22px; font-weight: 800;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  /* --- Common Inputs/Buttons --- */
+  input, select {
+    background: #020617;
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    padding: 8px 12px;
+    border-radius: 8px;
+    outline: none; transition: 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--c-growth); }
+  input[type=number].small { width: 60px; text-align: center; }
+
+  .btn {
+    border: none; padding: 8px 16px; border-radius: 8px;
+    color: #fff; font-weight: 600; cursor: pointer; font-size: 13px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(135deg, var(--c-growth), var(--c-mind)); }
+  .btn.success { background: linear-gradient(135deg, var(--c-health), #059669); }
+  .btn.ghost { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); }
+  .btn.ghost:hover { border-color: var(--text-main); color: var(--text-main); }
+  .btn.danger { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+  .btn.danger:hover { background: rgba(239, 68, 68, 0.25); }
+  .btn.mini { padding: 4px 8px; font-size: 12px; border-radius: 6px; line-height: 1; }
+  .btn.mini.full { padding: 0; width: 100%; height: 100%; font-size: 14px; border-radius: 4px; line-height: 1; }
+  
+  /* --- Discipline Specific --- */
+  .controls-bar { display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .charts-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  @media (min-width: 1024px) { .charts-grid { grid-template-columns: 1fr 2fr; } }
+  .chart-wrapper { position: relative; height: 350px; width: 100%; }
+  .zoom-toggle {
+    position: absolute; top: 0; left: 0; background: rgba(0,0,0,0.4);
+    padding: 4px 8px; border-radius: 6px; font-size: 11px; display: flex; align-items: center; gap: 6px; z-index: 10;
+  }
+  .checklist-container { overflow-x: auto; padding-bottom: 8px; }
+  .row { display: grid; gap: 2px; margin-bottom: 4px; align-items: stretch; }
+  .cell { display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 13px; position: relative; }
+  .cell.task {
+    justify-content: center; padding: 0 8px; font-weight: 600; color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cell.header-cell { background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-muted); font-weight: bold; height: 36px; }
+  .cell.day { background: rgba(30, 41, 59, 0.5); padding: 3px; }
+  input[type=checkbox] {
+    appearance: none; width: 100%; height: 100%; margin: 0; background: transparent;
+    border: 1px solid #334155; border-radius: 4px; cursor: pointer; display: grid; place-content: center;
+  }
+  input[type=checkbox]:checked { border-color: transparent; box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
+  input[type=checkbox]:checked::before { content: "✔"; color: white; font-size: 14px; font-weight: 900; }
+  .footer { display: grid; gap: 20px; font-size: 14px; }
+  .footer-section { border-bottom: 1px solid var(--card-border); padding-bottom: 15px; }
+  .footer-section:last-child { border-bottom: none; padding-bottom: 0; }
+  .section-title { font-weight: 700; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tag-display { display: flex; gap: 5px; flex-wrap: wrap; background: #020617; padding: 5px; border-radius: 6px; flex-grow: 1; min-height: 38px; }
+  .tag { padding: 2px 10px; border-radius: 12px; font-size: 11px; color: white; display: flex; align-items: center; gap: 5px; }
+  .tag .del { cursor: pointer; font-weight: bold; opacity: 0.7; margin-right: 4px; }
+  .tag .del:hover { opacity: 1; color: #fca5a5; }
+
+  /* --- Finance Specific --- */
+  .accounts-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;
+  }
+  .acc-card {
+    background: #0f172a; border: 1px solid var(--card-border); border-radius: 12px; padding: 15px;
+    display: flex; flex-direction: column; gap: 10px; position: relative;
+  }
+  .acc-card.main { border-color: var(--c-mind); }
+  .acc-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    font-size: 14px; 
+    color: var(--text-muted); 
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .acc-header span:first-child { color: var(--text-main); font-size: 16px; }
+  .acc-balance { font-size: 22px; font-weight: 800; color: var(--text-main); }
+  
+  .finance-controls {
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 20px;
+  }
+  @media (max-width: 800px) { .finance-controls { grid-template-columns: 1fr; } }
+
+  .history-list {
+    max-height: 400px; 
+    overflow-y: auto;
+    border: 1px solid var(--card-border); 
+    border-radius: 12px;
+    background: #020617;
+  }
+  .history-item {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 12px 15px; 
+    border-bottom: 1px solid var(--card-border); 
+    font-size: 13px;
+    transition: background-color 0.2s;
+  }
+  .history-item:hover { background: #121d2e; }
+  .history-item:last-child { border-bottom: none; }
+  
+  /* History Colors */
+  .amt.pos { color: var(--c-pos); }
+  .amt.neg { color: var(--c-neg); }
+  .amt.transfer { color: var(--c-mind); font-weight: 700; }
+  .trans-detail { text-align: left; }
+  .trans-type { display: block; font-size: 10px; color: var(--text-muted); margin-top: 4px;}
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="nav-tabs">
+    <button class="nav-btn active" onclick="switchTab('discipline', this)">🎯 داشبورد دیسیپلین</button>
+    <button class="nav-btn" onclick="switchTab('finance', this)">💰 داشبورد مالی</button>
+  </div>
+
+  <div id="tab-discipline" class="tab-content active">
+    
+    <div class="card controls-bar">
+      <div style="display:flex; gap:10px; align-items:center;">
+          <h1>داشبورد عادت‌ها</h1>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+          <label>روزهای ماه:</label>
+          <input class="small" type="number" id="daysInput" value="30" min="7" max="365" />
+          <button class="btn primary" id="reloadBtn">🔄 بروزرسانی</button>
+          <button class="btn ghost" id="saveBtn">💾 ذخیره</button>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="card" style="position:relative;">
+        <div class="section-title">🎯 تعادل چرخ زندگی</div>
+        <div class="zoom-toggle">
+          <input type="checkbox" id="zoomToggle" checked style="width:14px; height:14px;">
+          <label for="zoomToggle" style="color:#fff; cursor:pointer;">زوم هوشمند</label>
+        </div>
+        <div class="chart-wrapper"><canvas id="radarChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title">📈 روند روزانه</div>
+        <div class="chart-wrapper"><canvas id="lineChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card checklist-container">
+      <div id="checklist"></div>
+    </div>
+
+    <div class="card footer">
+      <div class="footer-section">
+          <span class="section-title">⚡ ایجاد کار جدید</span>
+          <div class="action-row">
+              <input type="text" id="newTaskName" placeholder="عنوان عادت..." style="flex-grow:1" />
+              <select id="newTaskCategory" style="min-width:140px"></select>
+              <input type="number" id="newTaskFreq" class="small" step="0.1" min="0.1" max="1" value="1" placeholder="ضریب" />
+              <button class="btn primary" id="addTaskBtn">افزودن</button>
+          </div>
+      </div>
+      <div class="footer-section">
+          <span class="section-title">🏷️ تنظیمات پیشرفته</span>
+          
+          <div tyle="display:flex; flex-direction:row; margin-top:12px; justify-content: space-between;">
+          
+            <div class="action-row" style="display:flex; margin-top:12px; justify-content: space-between;">
+                <select id="multiTaskSelect" style="min-width:200px"><option value="">انتخاب کار...</option></select>
+                <div id="taskTagBox" class="tag-display"></div>
+                <select id="addTagSelect" style="width:130px"><option value="">+ تگ...</option></select>
+                <button class="btn ghost" id="applyTagsBtn">افزودن تگ</button><br>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label>تغییر ضریب:</label>
+                    <input type="number" id="freqInput" class="small" step="0.1" min="0" max="1.5" />
+                    <button class="btn ghost" id="setFreqBtn">بروزرسانی</button>
+                </div>
+            </div>
+            <div class="action-row" style="display:flex; flex-direction:column; margin-top:12px; justify-content: space-between;">
+              <div style="display:flex; gap:8px; align-items:center;">
+                  <button class="btn ghost" id="addCatBtn">کتگوری جدید</button>
+                  <input type="text" id="newCatName" placeholder="نام..." style="width:100px" />
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                  <select id="deleteTaskSelect" style="min-width:150px"></select>
+                  <button class="btn danger" id="deleteTaskBtn">حذف کار</button>
+                  <select id="delCatSelect" style="display:none"></select>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-finance" class="tab-content">
+    
+    <div class="card" style="padding: 15px; border-color: var(--c-growth); text-align: center;">
+        <div class="section-title" style="margin-bottom: 5px; justify-content: center;">💶 مجموع کل دارایی</div>
+        <div id="totalBalanceDisplay" style="font-size: 30px; font-weight: 900; color: var(--c-wealth);">0 تومان</div>
+    </div>
+
+    <div class="accounts-grid" id="accountsContainer">
+        </div>
+
+    <div class="finance-controls">
+        <div class="card">
+            <div class="section-title">💸 ثبت تراکنش (خرج/درآمد)</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="transDesc" placeholder="بابت چی؟ (مثلا: خرید سوپرمارکت)">
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="transAmount" placeholder="مبلغ (تومان)" style="flex-grow:1">
+                    <select id="transAcc" style="width:140px"></select>
+                </div>
+                <button class="btn danger" onclick="addTransaction('expense')">ثبت هزینه (-)</button>
+                <button class="btn" onclick="addTransaction('income')" style="background-color:var(--c-pos)">ثبت درآمد (+)</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="section-title">🔁 انتقال بین حساب‌ها</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <select id="transferFromAcc" style="flex-grow:1"></select>
+                    <span style="white-space:nowrap; color:var(--text-muted);">به</span>
+                    <select id="transferToAcc" style="flex-grow:1"></select>
+                </div>
+                <input type="text" id="transferAmount" placeholder="مبلغ انتقال (تومان)">
+                <button class="btn" onclick="addTransfer()" style="background: var(--c-mind);">انتقال وجه</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">📝 تاریخچه کامل تراکنش‌ها</div>
+        <div class="history-list" id="historyList"></div>
+        <button class="btn ghost" style="margin-top:10px;" onclick="clearHistory()">پاکسازی تاریخچه</button>
+    </div>
+
+    <div class="card">
+        <div class="section-title">🛠️ تنظیمات اول ماه (درآمد ثابت)</div>
+        <div class="action-row" style="background:#020617; padding:15px; border-radius:12px; border:1px solid #334155;">
+            <div>
+                <label style="display:block; margin-bottom:5px;">درآمد ورودی (تومان)</label>
+                <input type="text" id="finIncome" value="35,000,000" style="width:150px; font-weight:bold; color:#10b981;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px;">مجموع اقساط ثابت</label>
+                <input type="text" id="finFixed" value="0" placeholder="مثلا 5,000,000" style="width:150px; color:#ef4444;">
+            </div>
+            <div style="flex-grow:1; text-align:left; display:flex; align-items:end; justify-content:end;">
+                 <button class="btn success" onclick="resetFinanceMonth()">📅 شروع ماه جدید و تقسیم بودجه</button>
+            </div>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:var(--text-muted);">
+            * با زدن دکمه بالا: درآمد وارد حساب **مهربانی** می‌شود، اقساط کم می‌شوند، ۲.۵م به **صادرات** و ۳م به **بلو** واریز می‌شود. **موجودی حساب جاری دست نمی‌خورد.**
+        </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+/* =========================================
+   GLOBAL & TABS
+   ========================================= */
+const STORAGE_KEY = 'Dashboard_V11_Final_Fix';
+
+function switchTab(tab, el) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    el.classList.add('active');
+}
+
+// Formatting utility for Money (35,000,000)
+function fmt(num) { return Number(num).toLocaleString('en-US'); }
+function unFmt(str) { return parseInt(String(str).replace(/,/g, '')) || 0; }
+
+// Auto-format inputs
+['finIncome', 'finFixed', 'transAmount', 'transferAmount'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function(e) {
+        let val = unFmt(this.value);
+        if(!isNaN(val)) this.value = fmt(val);
+    });
+});
+
+/* =========================================
+   PART 1: DISCIPLINE LOGIC (Full Restore)
+   ========================================= */
+const CAT_CONFIG = {
+    'رشد و یادگیری': '#8b5cf6', 'سلامت جسمانی': '#10b981',
+    'کار و ثروت': '#f59e0b', 'ذهن و روان': '#3b82f6',
+    'ارتباطات': '#f43f5e', 'نظم شخصی': '#64748b'
+};
+
+function getCatColor(cat) {
+    if(CAT_CONFIG[cat]) return CAT_CONFIG[cat];
+    let hash = 0; for (let i=0; i<cat.length; i++) hash = cat.charCodeAt(i)+((hash<<5)-hash);
+    return `hsl(${Math.abs(hash)%360}, 65%, 55%)`;
+}
+function uid(){ return Math.random().toString(36).substr(2, 9); }
+
+let tasks = [
+    { id: uid(), name: 'تمرکز و مدیتیشن', categories: ['ذهن و روان'], freq: 1 },
+    { id: uid(), name: 'ورزش سنگین/هوازی', categories: ['سلامت جسمانی'], freq: 0.8 },
+    { id: uid(), name: 'خواب با کیفیت', categories: ['سلامت جسمانی'], freq: 1 },
+    { id: uid(), name: 'پروژه DigiProof', categories: ['کار و ثروت', 'رشد و یادگیری'], freq: 0.7 },
+    { id: uid(), name: 'مطالعه تخصصی', categories: ['رشد و یادگیری'], freq: 0.8 },
+    { id: uid(), name: 'مدیریت مالی', categories: ['کار و ثروت'], freq: 0.5 },
+    { id: uid(), name: 'یادداشت روزانه', categories: ['ذهن و روان'], freq: 0.9 },
+    { id: uid(), name: 'یادگیری مهارت', categories: ['رشد و یادگیری'], freq: 0.6 },
+    { id: uid(), name: 'ارتباط مؤثر', categories: ['ارتباطات'], freq: 0.5 },
+    { id: uid(), name: 'برنامه‌ریزی فردا', categories: ['نظم شخصی'], freq: 1 },
+    { id: uid(), name: 'نوشیدن آب کافی', categories: ['سلامت جسمانی'], freq: 0.6 },
+    { id: uid(), name: 'مرور هفتگی', categories: ['نظم شخصی'], freq: 0.4 }
+];
+let categories = Object.keys(CAT_CONFIG);
+let daysCount = 30;
+
+/* Finance State */
+let finance = {
+    accounts: [
+        { id: 1, name: 'مهربانی', balance: 0 },
+        { id: 2, name: 'صادرات', balance: 0 },
+        { id: 3, name: 'بلو', balance: 0 },
+        { id: 4, name: 'جاری', balance: 0 }
+    ],
+    history: []
+};
+
+/* Storage */
+function getCurrentChecks() {
+    const s = {};
+    document.querySelectorAll('input[type=checkbox][data-task-id]').forEach(ch => s[ch.id] = ch.checked);
+    return s;
+}
+function saveState() {
+    const data = { daysCount, tasks, categories, checkboxState: getCurrentChecks(), finance };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+function loadState() {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if(s.daysCount) daysCount = s.daysCount;
+    if(s.tasks) tasks = s.tasks;
+    if(s.categories) categories = s.categories;
+    if(!categories.length) categories = Object.keys(CAT_CONFIG);
+    
+    // Load finance and ensure names are correct
+    if(s.finance) {
+        finance = s.finance;
+        // Ensure names are correct regardless of old data structure
+        if (finance.accounts.length === 4) {
+            finance.accounts[0].name = 'مهربانی (ذخیره)';
+            finance.accounts[1].name = 'صادرات (پس انداز)';
+            finance.accounts[2].name = 'بلو (ماشین)';
+            finance.accounts[3].name = 'جاری (روزانه)';
+        }
+    }
+
+
+    document.getElementById('daysInput').value = daysCount;
+    buildChecklist(s.checkboxState || {});
+    updateCharts();
+    renderFinance();
+}
+
+/* Charts */
+Chart.defaults.color = '#94a3b8'; Chart.defaults.borderColor = '#334155';
+const radarCtx = document.getElementById('radarChart').getContext('2d');
+const radarChart = new Chart(radarCtx, {
+    type: 'radar',
+    data: { datasets: [{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.4)', borderWidth: 1, pointRadius: 5 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { r: { min:0, angleLines:{color:'#334155'}, grid:{color:'#334155'}, ticks:{display:false, count:6}, pointLabels:{font:{size:12, weight:'700'}, color:c=>c.label==='دیسیپلین'?'#fff':getCatColor(c.label)} } } }
+});
+const lineCtx = document.getElementById('lineChart').getContext('2d');
+const lineChart = new Chart(lineCtx, {
+    type: 'line',
+    data: { datasets: [{ borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', borderWidth: 3, fill: true, tension: 0.3, pointRadius: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, grid:{color:'#1e293b'}}, x:{grid:{display:false}}} }
+});
+
+/* Logic */
+function getGradient(cats) {
+    const valid = cats.filter(c=>c!=='بدون دسته');
+    if(!valid.length) return '#334155';
+    if(valid.length===1) return `linear-gradient(90deg, ${getCatColor(valid[0])}33, ${getCatColor(valid[0])}88)`;
+    return `linear-gradient(90deg, ${valid.map(c=>getCatColor(c)+'66').join(', ')})`;
+}
+
+function buildChecklist(savedState = {}) {
+    const list = document.getElementById('checklist'); list.innerHTML = '';
+    const colStyle = `grid-template-columns: 200px repeat(${daysCount}, 40px)`;
+    const header = document.createElement('div'); header.className = 'row'; header.style = colStyle;
+    header.innerHTML = `<div class="cell header-cell">عنوان کار</div>` + Array.from({length:daysCount},(_,i)=>`<div class="cell header-cell">${i+1}</div>`).join('');
+    list.appendChild(header);
+
+    tasks.forEach(task => {
+        const row = document.createElement('div'); row.className = 'row'; row.style = colStyle;
+        const nameCell = document.createElement('div'); nameCell.className = 'cell task'; nameCell.textContent = task.name; nameCell.style.background = getGradient(task.categories);
+        row.appendChild(nameCell);
+        for(let d=0; d<daysCount; d++) {
+            const cell = document.createElement('div'); cell.className = 'cell day';
+            const chk = document.createElement('input'); chk.type = 'checkbox'; chk.id = `t-${task.id}-d${d}`; chk.dataset.taskId = task.id;
+            if(savedState[chk.id]) chk.checked = true;
+            chk.style.accentColor = getCatColor(task.categories[0]||'gray'); chk.onchange = ()=>{ saveState(); updateCharts(); };
+            cell.appendChild(chk); row.appendChild(cell);
+        }
+        list.appendChild(row);
+    });
+    
+    // Footer buttons
+    const btnRow = document.createElement('div'); btnRow.className = 'row'; btnRow.style = colStyle;
+    btnRow.innerHTML = `<div class="cell"><button class="btn danger mini full" onclick="if(confirm('پاکسازی همه؟')){document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false); saveState(); updateCharts();}">پاکسازی</button></div>`;
+    for(let d=0; d<daysCount; d++){
+        btnRow.innerHTML += `<div class="cell day"><button class="btn ghost mini full" onclick="if(confirm('پاکسازی ستون ${d+1}؟')){tasks.forEach(t=>{const el=document.getElementById('t-'+t.id+'-d'+${d});if(el)el.checked=false;});saveState();updateCharts();}">×</button></div>`;
+    }
+    list.appendChild(btnRow);
+    updateSelects();
+}
+
+function updateCharts() {
+    const lineData = Array(daysCount).fill(0);
+    const catStats = {}; categories.forEach(c=>catStats[c]={total:0,done:0});
+    let discSum=0, discMax=0;
+    tasks.forEach(t=>{
+        const w = parseFloat(t.freq)||1; discMax+=(w*daysCount);
+        for(let d=0; d<daysCount; d++){
+            const el = document.getElementById(`t-${t.id}-d${d}`);
+            if(el && el.checked){ lineData[d]++; discSum+=w; }
+            t.categories.forEach(c=>{ if(!catStats[c])catStats[c]={total:0,done:0}; catStats[c].total++; if(el&&el.checked)catStats[c].done++; });
+        }
+    });
+    const rLab=[], rDat=[], rCol=[];
+    categories.forEach(c=>{ if(catStats[c]?.total>0){ rLab.push(c); rDat.push((catStats[c].done/catStats[c].total)*100); rCol.push(getCatColor(c)); } });
+    rLab.push('دیسیپلین'); rDat.push(discMax?(discSum/discMax)*100:0); rCol.push('#fff');
+
+    const isZoom = document.getElementById('zoomToggle').checked;
+    let rMax = 100;
+    if(isZoom) { const m = Math.max(...rDat); rMax = Math.min(100, Math.ceil(m/10)*10); if(rMax<10)rMax=10; }
+
+    lineChart.data.labels = Array.from({length:daysCount},(_,i)=>i+1); lineChart.data.datasets[0].data = lineData; lineChart.update();
+    radarChart.data.labels = rLab; radarChart.data.datasets[0].data = rDat; radarChart.data.datasets[0].pointBackgroundColor = rCol;
+    radarChart.options.scales.r.max = rMax; radarChart.options.scales.r.ticks.stepSize = rMax/5; radarChart.update();
+}
+
+function updateSelects() {
+    const fill = (id, l) => { const el = document.getElementById(id); el.innerHTML=''; l.forEach(x=>el.add(new Option(x,x))); };
+    fill('newTaskCategory', categories); fill('addTagSelect', categories); fill('delCatSelect', categories);
+    const tEl = document.getElementById('multiTaskSelect'); tEl.innerHTML='<option value="">انتخاب کار...</option>';
+    tasks.forEach(t=>tEl.add(new Option(t.name, t.id)));
+    const dEl = document.getElementById('deleteTaskSelect'); dEl.innerHTML='';
+    tasks.forEach(t=>dEl.add(new Option(t.name, t.id)));
+}
+
+// Task Actions
+document.getElementById('reloadBtn').onclick=()=>{ daysCount=parseInt(document.getElementById('daysInput').value)||30; const s=getCurrentChecks(); buildChecklist(s); saveState(); updateCharts(); };
+document.getElementById('saveBtn').onclick=()=>{ saveState(); alert('ذخیره شد'); };
+document.getElementById('zoomToggle').onchange=()=>updateCharts();
+document.getElementById('addTaskBtn').onclick=()=>{
+    const n=document.getElementById('newTaskName').value, c=document.getElementById('newTaskCategory').value;
+    if(n){ tasks.push({id:uid(), name:n, categories:[c||'بدون دسته'], freq:document.getElementById('newTaskFreq').value}); document.getElementById('newTaskName').value=''; saveAndRef(); }
+};
+document.getElementById('deleteTaskBtn').onclick=()=>{
+    const id=document.getElementById('deleteTaskSelect').value;
+    if(id && confirm('حذف؟')){ tasks=tasks.filter(t=>t.id!==id); saveAndRef(); }
+};
+document.getElementById('applyTagsBtn').onclick=()=>{
+    const id=document.getElementById('multiTaskSelect').value, c=document.getElementById('addTagSelect').value;
+    if(id){ const t=tasks.find(x=>x.id===id); if(!t.categories.includes(c)) t.categories.push(c); saveAndRef(); }
+};
+document.getElementById('setFreqBtn').onclick=()=>{
+    const id=document.getElementById('multiTaskSelect').value; if(id){ tasks.find(x=>x.id===id).freq=document.getElementById('freqInput').value; saveAndRef(); alert('بروز شد'); }
+};
+document.getElementById('addCatBtn').onclick=()=>{
+    const n=document.getElementById('newCatName').value; if(n && !categories.includes(n)){ categories.push(n); document.getElementById('newCatName').value=''; saveAndRef(); }
+};
+document.getElementById('multiTaskSelect').onchange=function(){
+    const t=tasks.find(x=>x.id===this.value); if(!t)return;
+    document.getElementById('freqInput').value=t.freq;
+    const b=document.getElementById('taskTagBox'); b.innerHTML='';
+    t.categories.forEach(c=>{ b.innerHTML+=`<span class="tag" style="background:${getCatColor(c)}">${c}<span class="del" onclick="remTag('${t.id}','${c}')">✕</span></span>`; });
+};
+window.remTag=(id,c)=>{ const t=tasks.find(x=>x.id===id); t.categories=t.categories.filter(x=>x!==c); if(!t.categories.length)t.categories=['بدون دسته']; saveAndRef(); };
+function saveAndRef(){ saveState(); const sel=document.getElementById('multiTaskSelect').value; buildChecklist(getCurrentChecks()); updateCharts(); if(sel)document.getElementById('multiTaskSelect').value=sel; }
+
+
+/* =========================================
+   PART 2: FINANCE LOGIC (FIXED)
+   ========================================= */
+
+function renderFinance() {
+    // 1. Calculate and Display Total Balance
+    let totalBalance = finance.accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    const totalDisplay = document.getElementById('totalBalanceDisplay');
+    if (totalDisplay) {
+        totalDisplay.textContent = `${fmt(totalBalance)} تومان`;
+        totalDisplay.style.color = totalBalance >= 0 ? 'var(--c-wealth)' : 'var(--c-neg)';
+    }
+
+    // 2. Render Accounts
+    const con = document.getElementById('accountsContainer');
+    con.innerHTML = '';
+    
+    finance.accounts.forEach(acc => {
+        const card = document.createElement('div');
+        card.className = `acc-card ${acc.id === 4 ? 'main' : ''}`;
+        
+        // Custom button logic for Jari account (ID 4)
+        let extraHeaderContent = `<span>#${acc.id}</span>`;
+        if(acc.id === 4) {
+            extraHeaderContent = `<button class="btn mini" onclick="chargeWeekly()" style="background:var(--c-mind);">⚡ شارژ 1م</button>`;
+        }
+
+        card.innerHTML = `
+            <div class="acc-header">
+                <span>${acc.name}</span> 
+                ${extraHeaderContent}
+            </div>
+            <div class="acc-balance" style="color:${acc.balance < 0 ? 'var(--c-neg)' : 'var(--text-main)'}">${fmt(acc.balance)} <small style="font-size:12px;color:#94a3b8">تومان</small></div>
+        `;
+        con.appendChild(card);
+    });
+
+    // 3. Render Selects (Transaction and Transfer)
+    const transSel = document.getElementById('transAcc');
+    const transferFromSel = document.getElementById('transferFromAcc');
+    const transferToSel = document.getElementById('transferToAcc');
+
+    [transSel, transferFromSel, transferToSel].forEach(sel => sel.innerHTML = '');
+
+    finance.accounts.forEach(acc => {
+        transSel.add(new Option(acc.name, acc.id));
+        transferFromSel.add(new Option(acc.name, acc.id));
+        transferToSel.add(new Option(acc.name, acc.id));
+    });
+    // Set default transaction account to ID 4 (Jari)
+    transSel.value = 4;
+
+    // 4. Render History (Improved Styling)
+    const hist = document.getElementById('historyList');
+    hist.innerHTML = '';
+    [...finance.history].reverse().forEach(h => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        
+        let amountText = '';
+        let colorClass = '';
+        let typeText = '';
+
+        if (h.type === 'income') {
+            amountText = `+ ${fmt(h.amount)}`;
+            colorClass = 'pos';
+            typeText = 'درآمد';
+        } else if (h.type === 'expense') {
+            amountText = `- ${fmt(h.amount)}`;
+            colorClass = 'neg';
+            typeText = 'هزینه';
+        } else if (h.type === 'transfer' || h.type === 'transfer_out') {
+            // Transfer log
+            amountText = `${fmt(h.amount)}`;
+            colorClass = 'transfer';
+            typeText = 'انتقال وجه';
+        }
+
+        item.innerHTML = `
+            <div>
+                <span style="font-weight:700; display:block">${h.desc}</span>
+                <span style="color:var(--text-muted); font-size:11px;">حساب: ${h.accName} در ${h.date}</span>
+            </div>
+            <div class="trans-detail">
+                <div class="amt ${colorClass}" style="font-weight:bold; font-size:14px;">${amountText}</div>
+                <span class="trans-type">${typeText}</span>
+            </div>
+        `;
+        hist.appendChild(item);
+    });
+}
+
+function resetFinanceMonth() {
+    if(!confirm('آیا مطمئنید؟ موجودی‌های مهربانی، صادرات و بلو به‌روزرسانی می‌شوند.')) return;
+    
+    const income = unFmt(document.getElementById('finIncome').value);
+    const fixed = unFmt(document.getElementById('finFixed').value);
+    const toAcc2 = 2500000;
+    const toAcc3 = 3000000;
+    
+    // FIX: Account 4 (Jari) is NOT reset to 0. It retains its current balance.
+    
+    // 1. Calculate Acc 1 (Mehrbani) Balance
+    const acc1Balance = income - fixed - toAcc2 - toAcc3;
+    
+    // 2. Update all accounts
+    finance.accounts.find(a => a.id === 1).balance = finance.accounts.find(a => a.id === 1).balance+acc1Balance;
+    finance.accounts.find(a => a.id === 2).balance = finance.accounts.find(a => a.id === 2).balance+toAcc2;
+    finance.accounts.find(a => a.id === 3).balance = finance.accounts.find(a => a.id === 3).balance+toAcc3;
+    
+    // 3. Log
+    finance.history.push({
+        date: new Date().toLocaleDateString('fa-IR'),
+        desc: 'شروع ماه و تسهیم بودجه (درآمد اولیه)',
+        amount: income,
+        type: 'income',
+        accName: finance.accounts.find(a => a.id === 1).name 
+    });
+    
+    saveState();
+    renderFinance();
+}
+
+function chargeWeekly() {
+    if(!confirm('شارژ هفتگی 1 میلیون به حساب جاری انجام شود؟')) return;
+
+    const acc1 = finance.accounts.find(a => a.id === 1);
+    const acc4 = finance.accounts.find(a => a.id === 4);
+    const amount = 1000000;
+    
+    if(acc1.balance < amount) return alert('هشدار: موجودی حساب مهربانی کافی نیست!');
+    
+    acc1.balance -= amount;
+    acc4.balance += amount;
+    
+    finance.history.push({
+        date: new Date().toLocaleDateString('fa-IR'),
+        desc: `شارژ خرج هفتگی از ${acc1.name} به ${acc4.name}`,
+        amount: amount,
+        type: 'transfer',
+        accName: `${acc1.name} -> ${acc4.name}`
+    });
+    
+    saveState();
+    renderFinance();
+}
+
+function addTransaction(type) {
+    const desc = document.getElementById('transDesc').value;
+    const amt = unFmt(document.getElementById('transAmount').value);
+    const accId = parseInt(document.getElementById('transAcc').value);
+    
+    if(!desc || !amt) return alert('لطفا مبلغ و توضیحات را وارد کنید');
+    
+    const acc = finance.accounts.find(a => a.id === accId);
+    
+    if (type === 'expense' && acc.balance < amt) alert(`هشدار: موجودی حساب ${acc.name} کافی نیست!`);
+
+    if(type === 'expense') acc.balance -= amt;
+    else acc.balance += amt;
+    
+    finance.history.push({
+        date: new Date().toLocaleDateString('fa-IR'),
+        desc: desc,
+        amount: amt,
+        type: type,
+        accName: acc.name
+    });
+    
+    document.getElementById('transDesc').value = '';
+    document.getElementById('transAmount').value = '';
+    
+    saveState();
+    renderFinance();
+}
+
+function addTransfer() {
+    const fromId = parseInt(document.getElementById('transferFromAcc').value);
+    const toId = parseInt(document.getElementById('transferToAcc').value);
+    const amt = unFmt(document.getElementById('transferAmount').value);
+    
+    if (fromId === toId) return alert('حساب مبدأ و مقصد نمی‌توانند یکسان باشند.');
+    if (!amt || amt <= 0) return alert('مبلغ معتبر وارد کنید.');
+    
+    const accFrom = finance.accounts.find(a => a.id === fromId);
+    const accTo = finance.accounts.find(a => a.id === toId);
+    
+    if (accFrom.balance < amt) return alert('موجودی حساب مبدأ کافی نیست.');
+    
+    accFrom.balance -= amt;
+    accTo.balance += amt;
+    
+    finance.history.push({
+        date: new Date().toLocaleDateString('fa-IR'),
+        desc: `انتقال وجه از ${accFrom.name} به ${accTo.name}`,
+        amount: amt,
+        type: 'transfer',
+        accName: `${accFrom.name} -> ${accTo.name}` 
+    });
+    
+    document.getElementById('transferAmount').value = '';
+    
+    saveState();
+    renderFinance();
+}
+
+function clearHistory() {
+    if(confirm('تاریخچه پاک شود؟')) {
+        finance.history = [];
+        saveState();
+        renderFinance();
+    }
+}
+
+// Initial Boot
+loadState();
+
+</script>
+</body>
+</html>
